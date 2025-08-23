@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portofolio Prestasi Murid SMA Islam Al Azhar 16 Semarang</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .subtitle {
+            text-align: center;
+            color: #555;
+            margin-bottom: 20px;
+        }
+        .search-container {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        input[type="text"] {
+            padding: 10px;
+            width: 300px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #results {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .student-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        .student-table th, .student-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .student-table th {
+            width: 30%;
+            font-weight: bold;
+            background-color: #f9f9f9;
+        }
+        .student-table td {
+            width: 70%;
+        }
+        .error {
+            color: red;
+            text-align: center;
+        }
+        .loading {
+            text-align: center;
+            color: #555;
+        }
+        .footer {
+            text-align: center;
+            color: #777;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        ol {
+            margin: 10px 0 10px 20px;
+            padding-left: 20px;
+        }
+        ol li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Portofolio Prestasi</h1>
+    <p class="subtitle">Daftar Prestasi Siswa SMA Islam Al Azhar 16 Semarang</p>
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Ketik nama untuk mencari...">
+    </div>
+    <div id="results"><p class="loading">Memuat data...</p></div>
+    <p class="footer">SMA ISLAM AL AZHAR 16 SEMARANG @2025</p>
+
+    <script>
+        // Fungsi untuk sanitasi input
+        function sanitizeInput(input) {
+            const div = document.createElement('div');
+            div.textContent = input;
+            return div.innerHTML;
+        }
+
+        // Fungsi untuk normalisasi nama
+        function normalizeName(name) {
+            return name.trim().toLowerCase();
+        }
+
+        // Fungsi untuk mengambil data dari Google Apps Script
+        async function fetchSheetData() {
+            const url = 'https://script.google.com/macros/s/AKfycbx9N3nCQYN7XmvluLAi4osjR6K82-HVgm_XeihfBhHp_31QGsealbuL9bLxrh_Yqnf4/exec?app=real';
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (!data.values || data.values.length === 0) {
+                    throw new Error('Data tidak ditemukan di spreadsheet.');
+                }
+                return data.values;
+            } catch (error) {
+                document.getElementById('results').innerHTML = `<p class="error">Gagal mengambil data: ${error.message}</p>`;
+                return [];
+            }
+        }
+
+        // Fungsi debounce untuk membatasi frekuensi pencarian
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Fungsi untuk memproses data
+        async function processData() {
+            document.getElementById('results').innerHTML = '<p class="loading">Memuat data...</p>';
+            const data = await fetchSheetData();
+            if (!data.length) return;
+
+            // Membuat daftar nama unik dan diurutkan
+            const uniqueNames = [...new Set(data.map(row => normalizeName(row[0] || '')))].filter(name => name).sort();
+
+            // Membuat objek untuk menyimpan prestasi per nama
+            const studentAchievements = {};
+            const originalNames = {}; // Menyimpan nama asli untuk tampilan
+            data.forEach(row => {
+                const name = row[0] || '';
+                const normalizedName = normalizeName(name);
+                if (!normalizedName) return; // Lewati baris tanpa nama
+
+                const nomination = row[6] || '';
+                const event = row[2] || '';
+                const level = row[3] || '';
+                const category = row[7] || '';
+
+                if (!studentAchievements[normalizedName]) {
+                    studentAchievements[normalizedName] = { achievements: [], categories: {}, originalName: name };
+                }
+
+                // Simpan nama asli pertama yang ditemukan
+                if (!originalNames[normalizedName]) {
+                    originalNames[normalizedName] = name;
+                }
+
+                // Tambah prestasi
+                if (nomination && event && level) {
+                    studentAchievements[normalizedName].achievements.push(`${nomination} ${event} ${level}`);
+                }
+
+                // Hitung kategori
+                if (category) {
+                    studentAchievements[normalizedName].categories[category] = (studentAchievements[normalizedName].categories[category] || 0) + 1;
+                }
+            });
+
+            // Fungsi untuk mencari dan menampilkan hasil
+            function searchStudent() {
+                const searchTerm = sanitizeInput(document.getElementById('searchInput').value.trim().toLowerCase());
+                const resultsDiv = document.getElementById('results');
+                resultsDiv.innerHTML = '';
+
+                // Cek apakah input minimal 5 huruf
+                if (searchTerm.length < 5) {
+                    resultsDiv.innerHTML = '<p>Ketik minimal 5 huruf untuk mencari.</p>';
+                    return;
+                }
+
+                const matchedStudents = uniqueNames.filter(name => name.includes(searchTerm));
+                if (matchedStudents.length === 0) {
+                    resultsDiv.innerHTML = '<p class="error">Nama tidak ditemukan.</p>';
+                    return;
+                }
+
+                matchedStudents.forEach(normalizedName => {
+                    const studentData = studentAchievements[normalizedName];
+                    const displayName = originalNames[normalizedName]; // Gunakan nama asli untuk tampilan
+                    const achievements = studentData.achievements.length > 0 
+                        ? `<ol>${studentData.achievements.map(achievement => `<li>${sanitizeInput(achievement)}</li>`).join('')}</ol>` 
+                        : 'Tidak ada prestasi.';
+                    const categories = Object.entries(studentData.categories).length > 0 
+                        ? `<ol>${Object.entries(studentData.categories).map(([cat, count]) => `<li>${sanitizeInput(cat)}: ${count}</li>`).join('')}</ol>` 
+                        : 'Tidak ada kategori.';
+
+                    resultsDiv.innerHTML += `
+                        <table class="student-table">
+                            <tr>
+                                <th>Nama</th>
+                                <td>${sanitizeInput(displayName)}</td>
+                            </tr>
+                            <tr>
+                                <th>Prestasi</th>
+                                <td>${achievements}</td>
+                            </tr>
+                            <tr>
+                                <th>Kategori</th>
+                                <td>${categories}</td>
+                            </tr>
+                        </table>
+                    `;
+                });
+            }
+
+            // Event listener untuk input pencarian dengan debounce
+            const debouncedSearch = debounce(searchStudent, 300);
+            document.getElementById('searchInput').addEventListener('input', debouncedSearch);
+
+            // Tampilkan pesan awal setelah data dimuat
+            document.getElementById('results').innerHTML = '<p>Ketik minimal 5 huruf untuk mencari.</p>';
+        }
+
+        // Jalankan pemrosesan data saat halaman dimuat
+        processData();
+    </script>
+</body>
+</html>
